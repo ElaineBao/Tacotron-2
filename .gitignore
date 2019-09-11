@@ -107,3 +107,8 @@ venv.bak/
 logs-*/
 training_data/
 
+LJSpeech-1.1/
+*.tar.bz2
+.vscode
+profiling/
+tacotron_output

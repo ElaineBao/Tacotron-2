@@ -107,7 +107,7 @@ def main():
 		help='Steps between running summary ops')
 	parser.add_argument('--embedding_interval', type=int, default=5000,
 		help='Steps between updating embeddings projection visualization')
-	parser.add_argument('--checkpoint_interval', type=int, default=2500,
+	parser.add_argument('--checkpoint_interval', type=int, default=50,
 		help='Steps between writing checkpoints')
 	parser.add_argument('--eval_interval', type=int, default=5000,
 		help='Steps between eval on test data')
