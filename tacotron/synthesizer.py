@@ -64,9 +64,9 @@ class Synthesizer:
     #Memory allocation on the GPUs as needed
     config = tf.ConfigProto()
     # config.gpu_options.allow_growth = True
-    # config.allow_soft_placement = True
-    # config.intra_op_parallelism_threads = 1
-    # config.inter_op_parallelism_threads = 28
+    config.allow_soft_placement = True
+    config.intra_op_parallelism_threads = 28
+    config.inter_op_parallelism_threads = 1
 
     self.session = tf.Session(config=config)
     self.session.run(tf.global_variables_initializer())
@@ -172,32 +172,32 @@ class Synthesizer:
       linears = np.clip(linears, T2_output_range[0], T2_output_range[1])
       assert len(mels) == len(linears) == len(texts)
 
-    mels = np.clip(mels, T2_output_range[0], T2_output_range[1])
+    # mels = np.clip(mels, T2_output_range[0], T2_output_range[1])
 
-    if basenames is None:
-      #Generate wav and read it
-      if hparams.GL_on_GPU:
-        run_metadata = tf.RunMetadata()
-        wav = self.session.run(self.GLGPU_mel_outputs, feed_dict={self.GLGPU_mel_inputs: mels[0]}, options=options, run_metadata=run_metadata)
-        step += 1
-        profiler.add_step(step, run_metadata)
-        wav = audio.inv_preemphasis(wav, hparams.preemphasis, hparams.preemphasize)
-      else:
-        wav = audio.inv_mel_spectrogram(mels[0].T, hparams)
-      audio.save_wav(wav, 'temp.wav', sr=hparams.sample_rate) #Find a better way
+    # if basenames is None:
+    #   #Generate wav and read it
+    #   if hparams.GL_on_GPU:
+    #     run_metadata = tf.RunMetadata()
+    #     wav = self.session.run(self.GLGPU_mel_outputs, feed_dict={self.GLGPU_mel_inputs: mels[0]}, options=options, run_metadata=run_metadata)
+    #     step += 1
+    #     profiler.add_step(step, run_metadata)
+    #     wav = audio.inv_preemphasis(wav, hparams.preemphasis, hparams.preemphasize)
+    #   else:
+    #     wav = audio.inv_mel_spectrogram(mels[0].T, hparams)
+    #   audio.save_wav(wav, 'temp.wav', sr=hparams.sample_rate) #Find a better way
 
-      if platform.system() == 'Linux':
-        #Linux wav reader
-        os.system('aplay temp.wav')
+    #   if platform.system() == 'Linux':
+    #     #Linux wav reader
+    #     os.system('aplay temp.wav')
 
-      elif platform.system() == 'Windows':
-        #windows wav reader
-        os.system('start /min mplay32 /play /close temp.wav')
+    #   elif platform.system() == 'Windows':
+    #     #windows wav reader
+    #     os.system('start /min mplay32 /play /close temp.wav')
 
-      else:
-        raise RuntimeError('Your OS type is not supported yet, please add it to "tacotron/synthesizer.py, line-165" and feel free to make a Pull Request ;) Thanks!')
+    #   else:
+    #     raise RuntimeError('Your OS type is not supported yet, please add it to "tacotron/synthesizer.py, line-165" and feel free to make a Pull Request ;) Thanks!')
 
-      return
+    #   return
 
 
     saved_mels_paths = []
@@ -258,7 +258,7 @@ class Synthesizer:
     option_builder = tf.profiler.ProfileOptionBuilder
     opts = (option_builder(option_builder.time_and_memory()).
             with_step(-1). # with -1, should compute the average of all registered steps.
-            with_file_output('/home/zixuanwe/dev/tacotron/ref/Tacotron-2/profiling/inference_profiling.txt').
+            with_file_output('/home/zixuanwe/dev/tacotron/Tacotron-2/profiling/inference_profiling.txt').
             select(['micros','bytes','occurrence']).order_by('micros').
             build())
     # Profiling infos about ops are saved in 'test-%s.txt' % FLAGS.out
@@ -267,7 +267,7 @@ class Synthesizer:
 
     fetched_timeline = timeline.Timeline(run_metadata.step_stats)
     chrome_trace = fetched_timeline.generate_chrome_trace_format()
-    with open("/home/zixuanwe/dev/tacotron/ref/Tacotron-2/profiling/timeline_{}.json".format(step), "w") as f:
+    with open("/home/zixuanwe/dev/tacotron/Tacotron-2/profiling/timeline_{}.json".format(step), "w") as f:
       f.write(chrome_trace)
 
     return saved_mels_paths, speaker_ids
