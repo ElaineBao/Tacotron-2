@@ -109,7 +109,8 @@ def run_synthesis(args, checkpoint_path, output_dir, hparams):
       wav_filenames = [os.path.join(wav_dir, m[0]) for m in meta]
       basenames = [os.path.basename(m).replace('.npy', '').replace('mel-', '') for m in mel_filenames]
       mel_output_filenames, speaker_ids = synth.synthesize(texts, basenames, synth_dir, None, mel_filenames)
-      break
+      if i == 1:
+        break
 
       for elems in zip(wav_filenames, mel_filenames, mel_output_filenames, speaker_ids, texts):
         file.write('|'.join([str(x) for x in elems]) + '\n')

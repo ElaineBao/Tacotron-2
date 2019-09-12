@@ -98,9 +98,9 @@ class Tacotron():
 		tower_projected_residual = []
 		
 		# 1. Declare GPU Devices
-		gpus = ["/gpu:{}".format(i) for i in range(hp.tacotron_num_gpus)]
-		for i in range(hp.tacotron_num_gpus):
-			with tf.device(tf.train.replica_device_setter(ps_tasks=1, ps_device="/cpu:0", worker_device=gpus[i])):
+		gpus = ["/cpu:{}".format(i) for i in range(hp.tacotron_num_gpus)]
+		for i in range(hp.tacotron_num_gpus if False else 1):
+			with tf.device("/device:CPU:0"):
 				with tf.variable_scope('inference') as scope:
 					assert hp.tacotron_teacher_forcing_mode in ('constant', 'scheduled')
 					if hp.tacotron_teacher_forcing_mode == 'scheduled' and is_training:
@@ -288,10 +288,10 @@ class Tacotron():
 		total_linear_loss = 0
 		total_loss = 0
 
-		gpus = ["/gpu:{}".format(i) for i in range(hp.tacotron_num_gpus)]
+		gpus = ["/cpu:{}".format(i) for i in range(hp.tacotron_num_gpus)]
 
 		for i in range(hp.tacotron_num_gpus):
-			with tf.device(tf.train.replica_device_setter(ps_tasks=1, ps_device="/cpu:0", worker_device=gpus[i])):
+			with tf.device("/device:CPU:0"):
 				with tf.variable_scope('loss') as scope:
 					if hp.mask_decoder:
 						# Compute loss of predictions before postnet
@@ -377,11 +377,11 @@ class Tacotron():
 		tower_gradients = []
 
 		# 1. Declare GPU Devices
-		gpus = ["/gpu:{}".format(i) for i in range(hp.tacotron_num_gpus)]
+		gpus = ["/cpu:{}".format(i) for i in range(hp.tacotron_num_gpus)]
 
 		grad_device = '/cpu:0' if hp.tacotron_num_gpus > 1 else gpus[0]
 
-		with tf.device(grad_device):
+		with tf.device("/device:CPU:0"):
 			with tf.variable_scope('optimizer') as scope:
 				if hp.tacotron_decay_learning_rate:
 					self.decay_steps = hp.tacotron_decay_steps
@@ -396,14 +396,14 @@ class Tacotron():
 		# 2. Compute Gradient
 		for i in range(hp.tacotron_num_gpus):
 			#  Device placement
-			with tf.device(tf.train.replica_device_setter(ps_tasks=1, ps_device="/cpu:0", worker_device=gpus[i])):
+			with tf.device("/device:CPU:0"):
 				with tf.variable_scope('optimizer') as scope:
 					update_vars = [v for v in self.all_vars if not ('inputs_embedding' in v.name or 'encoder_' in v.name)] if hp.tacotron_fine_tuning else None
 					gradients = optimizer.compute_gradients(self.tower_loss[i], var_list=update_vars)
 					tower_gradients.append(gradients)
 
 		# 3. Average Gradient
-		with tf.device(grad_device):
+		with tf.device("/device:CPU:0"):
 			avg_grads = []
 			variables = []
 			for grad_and_vars in zip(*tower_gradients):

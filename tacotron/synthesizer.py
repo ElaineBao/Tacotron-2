@@ -2,6 +2,7 @@ import os
 import wave
 from datetime import datetime
 
+import time
 import numpy as np
 import pyaudio
 import sounddevice as sd
@@ -61,11 +62,11 @@ class Synthesizer:
 
     log('Loading checkpoint: %s' % checkpoint_path)
     #Memory allocation on the GPUs as needed
-    config = tf.ConfigProto(device_count= {"CPU": 28})
-    config.gpu_options.allow_growth = True
-    config.allow_soft_placement = True
-    config.intra_op_parallelism_threads = 28
-    config.inter_op_parallelism_threads = 28
+    config = tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
+    # config.allow_soft_placement = True
+    # config.intra_op_parallelism_threads = 1
+    # config.inter_op_parallelism_threads = 28
 
     self.session = tf.Session(config=config)
     self.session.run(tf.global_variables_initializer())
@@ -130,6 +131,7 @@ class Synthesizer:
 
     feed_dict[self.split_infos] = np.asarray(split_infos, dtype=np.int32)
 
+    start = time.time()
     if self.gta or not hparams.predict_linear:
       run_metadata = tf.RunMetadata()
       mels, alignments, stop_tokens = self.session.run([self.mel_outputs, self.alignments, self.stop_token_prediction], feed_dict=feed_dict, options=options, run_metadata=run_metadata)
@@ -251,6 +253,7 @@ class Synthesizer:
           #save linear spectrogram plot
           plot.plot_spectrogram(linears[i], os.path.join(log_dir, 'plots/linear-{}.png'.format(basenames[i])),
             title='{}'.format(texts[i]), split_title=True, auto_aspect=True)
+    print("Synthesis time: {}ms".format((time.time() - start)*1000.0))
     
     option_builder = tf.profiler.ProfileOptionBuilder
     opts = (option_builder(option_builder.time_and_memory()).
