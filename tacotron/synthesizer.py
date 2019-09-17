@@ -131,12 +131,18 @@ class Synthesizer:
 
     feed_dict[self.split_infos] = np.asarray(split_infos, dtype=np.int32)
 
-    start = time.time()
+    # start = time.time()
+    log("gta:{}, predict_linear:{}".format(self.gta, hparams.predict_linear))
     if self.gta or not hparams.predict_linear:
+      log("run=====================================")
       run_metadata = tf.RunMetadata()
+      log("start session run=====================================")
+      start = time.time()
       mels, alignments, stop_tokens = self.session.run([self.mel_outputs, self.alignments, self.stop_token_prediction], feed_dict=feed_dict, options=options, run_metadata=run_metadata)
       step += 1
       profiler.add_step(step, run_metadata)
+      end = time.time() - start
+      log("end session run, time:{}=====================================".format(end))
       #Linearize outputs (n_gpus -> 1D)
       mels = [mel for gpu_mels in mels for mel in gpu_mels]
       alignments = [align for gpu_aligns in alignments for align in gpu_aligns]
@@ -152,10 +158,15 @@ class Synthesizer:
       assert len(mels) == len(texts)
 
     else:
+      log("run=====================================")
       run_metadata = tf.RunMetadata()
+      log("start session run=====================================")
+      start = time.time()
       linears, mels, alignments, stop_tokens = self.session.run([self.linear_outputs, self.mel_outputs, self.alignments, self.stop_token_prediction], feed_dict=feed_dict, options=options, run_metadata=run_metadata)
       step += 1
       profiler.add_step(step, run_metadata)
+      end = time.time() - start
+      log("end session run, time:{}=====================================".format(end))
       #Linearize outputs (1D arrays)
       linears = [linear for gpu_linear in linears for linear in gpu_linear]
       mels = [mel for gpu_mels in mels for mel in gpu_mels]
@@ -173,7 +184,6 @@ class Synthesizer:
       assert len(mels) == len(linears) == len(texts)
 
     # mels = np.clip(mels, T2_output_range[0], T2_output_range[1])
-
     # if basenames is None:
     #   #Generate wav and read it
     #   if hparams.GL_on_GPU:
@@ -199,66 +209,67 @@ class Synthesizer:
 
     #   return
 
+    # log("save mels=====================================")
+    # saved_mels_paths = []
+    # speaker_ids = []
+    # for i, mel in enumerate(mels):
+    #   log('{}==================='.format(i))
+    #   #Get speaker id for global conditioning (only used with GTA generally)
+    #   if hparams.gin_channels > 0:
+    #     raise RuntimeError('Please set the speaker_id rule in line 99 of tacotron/synthesizer.py to allow for global condition usage later.')
+    #     speaker_id = '<no_g>' #set the rule to determine speaker id. By using the file basename maybe? (basenames are inside "basenames" variable)
+    #     speaker_ids.append(speaker_id) #finish by appending the speaker id. (allows for different speakers per batch if your model is multispeaker)
+    #   else:
+    #     speaker_id = '<no_g>'
+    #     speaker_ids.append(speaker_id)
 
-    saved_mels_paths = []
-    speaker_ids = []
-    for i, mel in enumerate(mels):
-      #Get speaker id for global conditioning (only used with GTA generally)
-      if hparams.gin_channels > 0:
-        raise RuntimeError('Please set the speaker_id rule in line 99 of tacotron/synthesizer.py to allow for global condition usage later.')
-        speaker_id = '<no_g>' #set the rule to determine speaker id. By using the file basename maybe? (basenames are inside "basenames" variable)
-        speaker_ids.append(speaker_id) #finish by appending the speaker id. (allows for different speakers per batch if your model is multispeaker)
-      else:
-        speaker_id = '<no_g>'
-        speaker_ids.append(speaker_id)
+    #   # Write the spectrogram to disk
+    #   # Note: outputs mel-spectrogram files and target ones have same names, just different folders
+    #   mel_filename = os.path.join(out_dir, 'mel-{}.npy'.format(basenames[i]))
+    #   np.save(mel_filename, mel, allow_pickle=False)
+    #   saved_mels_paths.append(mel_filename)
 
-      # Write the spectrogram to disk
-      # Note: outputs mel-spectrogram files and target ones have same names, just different folders
-      mel_filename = os.path.join(out_dir, 'mel-{}.npy'.format(basenames[i]))
-      np.save(mel_filename, mel, allow_pickle=False)
-      saved_mels_paths.append(mel_filename)
+    #   if log_dir is not None:
+    #     #save wav (mel -> wav)
+    #     if hparams.GL_on_GPU:
+    #       run_metadata = tf.RunMetadata()
+    #       wav = self.session.run(self.GLGPU_mel_outputs, feed_dict={self.GLGPU_mel_inputs: mel}, options=options, run_metadata=run_metadata)
+    #       step += 1
+    #       profiler.add_step(step, run_metadata)
+    #       wav = audio.inv_preemphasis(wav, hparams.preemphasis, hparams.preemphasize)
+    #     else:
+    #       wav = audio.inv_mel_spectrogram(mel.T, hparams)
+    #     audio.save_wav(wav, os.path.join(log_dir, 'wavs/wav-{}-mel.wav'.format(basenames[i])), sr=hparams.sample_rate)
 
-      if log_dir is not None:
-        #save wav (mel -> wav)
-        if hparams.GL_on_GPU:
-          run_metadata = tf.RunMetadata()
-          wav = self.session.run(self.GLGPU_mel_outputs, feed_dict={self.GLGPU_mel_inputs: mel}, options=options, run_metadata=run_metadata)
-          step += 1
-          profiler.add_step(step, run_metadata)
-          wav = audio.inv_preemphasis(wav, hparams.preemphasis, hparams.preemphasize)
-        else:
-          wav = audio.inv_mel_spectrogram(mel.T, hparams)
-        audio.save_wav(wav, os.path.join(log_dir, 'wavs/wav-{}-mel.wav'.format(basenames[i])), sr=hparams.sample_rate)
+    #     #save alignments
+    #     plot.plot_alignment(alignments[i], os.path.join(log_dir, 'plots/alignment-{}.png'.format(basenames[i])),
+    #       title='{}'.format(texts[i]), split_title=True, max_len=target_lengths[i])
 
-        #save alignments
-        plot.plot_alignment(alignments[i], os.path.join(log_dir, 'plots/alignment-{}.png'.format(basenames[i])),
-          title='{}'.format(texts[i]), split_title=True, max_len=target_lengths[i])
+    #     #save mel spectrogram plot
+    #     plot.plot_spectrogram(mel, os.path.join(log_dir, 'plots/mel-{}.png'.format(basenames[i])),
+    #       title='{}'.format(texts[i]), split_title=True)
 
-        #save mel spectrogram plot
-        plot.plot_spectrogram(mel, os.path.join(log_dir, 'plots/mel-{}.png'.format(basenames[i])),
-          title='{}'.format(texts[i]), split_title=True)
+    #     if hparams.predict_linear:
+    #       #save wav (linear -> wav)
+    #       if hparams.GL_on_GPU:
+    #         run_metadata = tf.RunMetadata()
+    #         wav = self.session.run(self.GLGPU_lin_outputs, feed_dict={self.GLGPU_lin_inputs: linears[i]}, options=options, run_metadata=run_metadata)
+    #         step += 1
+    #         profiler.add_step(step, run_metadata)
+    #         wav = audio.inv_preemphasis(wav, hparams.preemphasis, hparams.preemphasize)
+    #       else:
+    #         wav = audio.inv_linear_spectrogram(linears[i].T, hparams)
+    #       audio.save_wav(wav, os.path.join(log_dir, 'wavs/wav-{}-linear.wav'.format(basenames[i])), sr=hparams.sample_rate)
 
-        if hparams.predict_linear:
-          #save wav (linear -> wav)
-          if hparams.GL_on_GPU:
-            run_metadata = tf.RunMetadata()
-            wav = self.session.run(self.GLGPU_lin_outputs, feed_dict={self.GLGPU_lin_inputs: linears[i]}, options=options, run_metadata=run_metadata)
-            step += 1
-            profiler.add_step(step, run_metadata)
-            wav = audio.inv_preemphasis(wav, hparams.preemphasis, hparams.preemphasize)
-          else:
-            wav = audio.inv_linear_spectrogram(linears[i].T, hparams)
-          audio.save_wav(wav, os.path.join(log_dir, 'wavs/wav-{}-linear.wav'.format(basenames[i])), sr=hparams.sample_rate)
-
-          #save linear spectrogram plot
-          plot.plot_spectrogram(linears[i], os.path.join(log_dir, 'plots/linear-{}.png'.format(basenames[i])),
-            title='{}'.format(texts[i]), split_title=True, auto_aspect=True)
+    #       #save linear spectrogram plot
+    #       plot.plot_spectrogram(linears[i], os.path.join(log_dir, 'plots/linear-{}.png'.format(basenames[i])),
+    #         title='{}'.format(texts[i]), split_title=True, auto_aspect=True)
     print("Synthesis time: {}ms".format((time.time() - start)*1000.0))
-    
+
     option_builder = tf.profiler.ProfileOptionBuilder
     opts = (option_builder(option_builder.time_and_memory()).
             with_step(-1). # with -1, should compute the average of all registered steps.
-            with_file_output('/home/zixuanwe/dev/tacotron/Tacotron-2/profiling/inference_profiling.txt').
+            with_file_output('./profiling/inference_profiling.txt').
             select(['micros','bytes','occurrence']).order_by('micros').
             build())
     # Profiling infos about ops are saved in 'test-%s.txt' % FLAGS.out
@@ -267,10 +278,10 @@ class Synthesizer:
 
     fetched_timeline = timeline.Timeline(run_metadata.step_stats)
     chrome_trace = fetched_timeline.generate_chrome_trace_format()
-    with open("/home/zixuanwe/dev/tacotron/Tacotron-2/profiling/timeline_{}.json".format(step), "w") as f:
+    with open("./profiling/timeline_{}.json".format(step), "w") as f:
       f.write(chrome_trace)
 
-    return saved_mels_paths, speaker_ids
+    return None, None#saved_mels_paths, speaker_ids
 
   def _round_up(self, x, multiple):
     remainder = x % multiple
