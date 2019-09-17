@@ -139,9 +139,9 @@ class Synthesizer:
       log("start session run=====================================")
       start = time.time()
       mels, alignments, stop_tokens = self.session.run([self.mel_outputs, self.alignments, self.stop_token_prediction], feed_dict=feed_dict, options=options, run_metadata=run_metadata)
+      end = time.time() - start
       step += 1
       profiler.add_step(step, run_metadata)
-      end = time.time() - start
       log("end session run, time:{}=====================================".format(end))
       #Linearize outputs (n_gpus -> 1D)
       mels = [mel for gpu_mels in mels for mel in gpu_mels]
@@ -163,9 +163,10 @@ class Synthesizer:
       log("start session run=====================================")
       start = time.time()
       linears, mels, alignments, stop_tokens = self.session.run([self.linear_outputs, self.mel_outputs, self.alignments, self.stop_token_prediction], feed_dict=feed_dict, options=options, run_metadata=run_metadata)
+      end = time.time() - start
       step += 1
       profiler.add_step(step, run_metadata)
-      end = time.time() - start
+
       log("end session run, time:{}=====================================".format(end))
       #Linearize outputs (1D arrays)
       linears = [linear for gpu_linear in linears for linear in gpu_linear]
