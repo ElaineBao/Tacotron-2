@@ -69,12 +69,12 @@ def run_eval(args, checkpoint_path, output_dir, hparams, sentences):
       log('eval time for synthesize one sentence:{}'.format(end))
       break
 
-      for elems in zip(texts, mel_filenames, speaker_ids):
-        file.write('|'.join([str(x) for x in elems]) + '\n')
+      # for elems in zip(texts, mel_filenames, speaker_ids):
+      #   file.write('|'.join([str(x) for x in elems]) + '\n')
   log('synthesized mel spectrograms at {}'.format(eval_dir))
   return eval_dir
 
-def run_synthesis(args, checkpoint_path, output_dir, hparams):
+def run_synthesis(args, checkpoint_path, output_dir, hparams, sentences=None):
   GTA = (args.GTA == 'True')
   if GTA:
     synth_dir = os.path.join(output_dir, 'gta')
@@ -106,7 +106,10 @@ def run_synthesis(args, checkpoint_path, output_dir, hparams):
   wav_dir = os.path.join(args.input_dir, 'audio')
   with open(os.path.join(synth_dir, 'map.txt'), 'w') as file:
     for i, meta in enumerate(tqdm(metadata)):
-      texts = [m[5] for m in meta]
+      if sentences:
+        texts = [m[5] for m in meta]
+      else:
+        texts = [sentences[i]]
       mel_filenames = [os.path.join(mel_dir, m[1]) for m in meta]
       wav_filenames = [os.path.join(wav_dir, m[0]) for m in meta]
       basenames = [os.path.basename(m).replace('.npy', '').replace('mel-', '') for m in mel_filenames]
@@ -114,8 +117,8 @@ def run_synthesis(args, checkpoint_path, output_dir, hparams):
       if i == 1:
         break
 
-      for elems in zip(wav_filenames, mel_filenames, mel_output_filenames, speaker_ids, texts):
-        file.write('|'.join([str(x) for x in elems]) + '\n')
+      # for elems in zip(wav_filenames, mel_filenames, mel_output_filenames, speaker_ids, texts):
+      #   file.write('|'.join([str(x) for x in elems]) + '\n')
   log('synthesized mel spectrograms at {}'.format(synth_dir))
   return os.path.join(synth_dir, 'map.txt')
 
@@ -139,6 +142,6 @@ def tacotron_synthesize(args, hparams, checkpoint, sentences=None):
   if args.mode == 'eval':
     return run_eval(args, checkpoint_path, output_dir, hparams, sentences)
   elif args.mode == 'synthesis':
-    return run_synthesis(args, checkpoint_path, output_dir, hparams)
+    return run_synthesis(args, checkpoint_path, output_dir, hparams, sentences)
   else:
     run_live(args, checkpoint_path, hparams)

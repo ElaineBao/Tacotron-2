@@ -275,6 +275,7 @@ class Synthesizer:
             build())
     # Profiling infos about ops are saved in 'test-%s.txt' % FLAGS.out
     profiler.profile_operations(options=opts)
+    # profiler.advise(options=opts)
     print("============Profiler operations done!")
 
     fetched_timeline = timeline.Timeline(run_metadata.step_stats)
